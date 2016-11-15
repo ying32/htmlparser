@@ -1136,7 +1136,7 @@ type
 
 const
   EntityTable: array [0 .. 252 - 1] of TEntityItem = ((Key: '&nbsp;';
-    Value: WideChar(160)), (Key: '&iexcl;'; Value: WideChar(161)),
+    Value: #32), (Key: '&iexcl;'; Value: WideChar(161)),
     (Key: '&cent;'; Value: WideChar(162)), (Key: '&pound;';
     Value: WideChar(163)), (Key: '&curren;'; Value: WideChar(164)),
     (Key: '&yen;'; Value: WideChar(165)), (Key: '&brvbar;';
