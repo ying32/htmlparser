@@ -5,27 +5,29 @@ delphi html parser
 
 #### 修改记录
 
-ying32修改于 2016年11月15日
-Email:1444386932@qq.com
-  
- IHtmlElement和THtmlElement的改变：
-  1、Attributes属性增加Set方法
-  2、TagName属性增加Set方法
-  3、增加Parent属性
-  4、增加RemoveAttr方法
-  5、增加Remove方法
-  6、增加RemoveChild方法
-  7、增加Find方法，此为SimpleCSSSelector的一个另名
-  8、_GetHtml不再直接附加FOrignal属性值，而是使用GetSelfHtml重新对修改后的元素进行赋值操作，并更新FOrignal的值
-  9、增加Text属性
+ying32修改于 2016年11月15日  
+Email:1444386932@qq.com  
 
- IHtmlElementList和THtmlElementList的改变： 
-  1、增加RemoveAll方法
-  2、增加Remove方法
-  3、增加Each方法  
-  4、增加Text属性
+>  
+ IHtmlElement和THtmlElement的改变：    
+  1、Attributes属性增加Set方法    
+  2、TagName属性增加Set方法  
+  3、增加Parent属性    
+  4、增加RemoveAttr方法    
+  5、增加Remove方法  
+  6、增加RemoveChild方法  
+  7、增加Find方法，此为SimpleCSSSelector的一个另名  
+  8、_GetHtml不再直接附加FOrignal属性值，而是使用GetSelfHtml重新对修改后的元素进行赋值操作，并更新FOrignal的值  
+  9、增加Text属性  
 
-#### 修改后的新功能的一些使用法
+>
+ IHtmlElementList和THtmlElementList的改变：   
+  1、增加RemoveAll方法  
+  2、增加Remove方法  
+  3、增加Each方法    
+  4、增加Text属性  
+
+#### 修改后的新功能的一些使用法  
 
 > IHtmlElement  
 
