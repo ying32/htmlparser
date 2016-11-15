@@ -1805,10 +1805,12 @@ begin
 end;
 
 function TIHtmlElementList.GetText: WideString;
+var
+  LEL: IHtmlElement;
 begin
   Result := '';
-  if FList.Count = 1 then
-    Result := FList[0].InnerText;
+  for LEL in FList do
+    Result := Result + LEL.InnerText;
 end;
 
 function TIHtmlElementList.IndexOf(Item: IHtmlElement): Integer;
