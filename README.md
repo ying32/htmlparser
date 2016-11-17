@@ -19,6 +19,8 @@ Email:1444386932@qq.com
   7、增加Find方法，此为SimpleCSSSelector的一个另名  
   8、_GetHtml不再直接附加FOrignal属性值，而是使用GetSelfHtml重新对修改后的元素进行赋值操作，并更新FOrignal的值  
   9、增加Text属性  
+  10、修改InnerText与Text属性增加write功能
+  11、增加AppedChild方法 
 
 >
  IHtmlElementList和THtmlElementList的改变：   
@@ -32,16 +34,20 @@ Email:1444386932@qq.com
 > IHtmlElement  
 
 ```delphi  
-
+     // 修改属性
      EL.Attributes['class'] := 'xxxx';
-
+     // 修改标记
      EL.TagName = 'a';
-
-     EL.Remove; // 移除自己
-
+     // 移除自己
+     EL.Remove; 
+     // 移除子结点
      EL.RemoveChild(El2);
-
+     // css选择器查找，简化用
      El.Find('a');
+     // 附加一个新的元素
+     el2 := El.AppendChild('a');
+     
+     
 ```  
 
 > IHtmlElementList  
@@ -52,7 +58,7 @@ Email:1444386932@qq.com
   LHtml.Find('a').RemoveAll;
 
   // 查找并遍沥
-  // LHtml.Find('a').Each(
+  LHtml.Find('a').Each(
     procedure(AIndex: Integer; AEl: IHtmlElement)
     begin
       Writeln('Index=', AIndex, ',  href=', AEl.Attributes['href']);

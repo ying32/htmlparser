@@ -105,6 +105,7 @@ type
     function GetInnerHtml(): WideString; safecall;
     function GetOuterHtml(): WideString; safecall;
     function GetInnerText(): WideString; safecall;
+    procedure SetInnerText(Value: WideString); safecall;
 
     function GetAttributes(Key: WideString): WideString; safecall;
     procedure SetAttributes(Key: WideString; Value: WideString); safecall;
@@ -117,6 +118,7 @@ type
     // 增加移除节点
     function RemoveChild(ANode: IHtmlElement): Integer; stdcall;
     procedure Remove; stdcall;
+    function AppedChild(const ATag: string): IHtmlElement; stdcall;
 
     // 属性是否存在
     function HasAttribute(AttributeName: WideString): Boolean; stdcall;
@@ -146,7 +148,7 @@ type
     //
     property InnerHtml: WideString read GetInnerHtml;
     property OuterHtml: WideString read GetOuterHtml;
-    property InnerText: WideString read GetInnerText;
+    property InnerText: WideString read GetInnerText write SetInnerText;
     property Text: WideString read GetInnerText;
 
     property Attributes[Key: WideString]: WideString read GetAttributes write SetAttributes;
@@ -258,6 +260,7 @@ type
   THtmlElement = class(TInterfacedObject, IHtmlElement)
   private
     function GetChildrens: IHtmlElementList;
+
   protected
     // ying32
     function GetParent: IHtmlElement; stdcall;
@@ -272,6 +275,7 @@ type
     function GetInnerHtml(): WideString; safecall;
     function GetOuterHtml(): WideString; safecall;
     function GetInnerText(): WideString; safecall;
+    procedure SetInnerText(Value: WideString); safecall;
 
     function GetAttributes(Key: WideString): WideString; safecall;
     procedure SetAttributes(Key: WideString; Value: WideString); safecall;
@@ -284,6 +288,8 @@ type
     // ying32添加
     function RemoveChild(ANode: IHtmlElement): Integer; stdcall;
     procedure Remove; stdcall;
+    function AppedChild(const ATag: string): IHtmlElement; stdcall;
+
 
     // 属性是否存在
     function HasAttribute(AttributeName: WideString): Boolean; stdcall;
@@ -1865,6 +1871,25 @@ begin
   inherited Destroy;
 end;
 
+function THtmlElement.AppedChild(const ATag: string): IHtmlElement;
+begin
+  Result := nil;
+  if ATag = '' then
+    Exit;
+  if Assigned(FChildren) then
+  begin
+    Result := THtmlElement.Create(Self, '', 0, 0);
+    Result.TagName := ATag;
+    THtmlElement(Result).FClosed := True;
+
+    THtmlElement(Result).FCloseTag := THtmlElement.Create(Self, '', 0, 0);
+    Result.CloseTag.TagName := ATag;
+    THtmlElement(Result.CloseTag).FClosed := False;
+
+    FChildren.Add(Result);
+  end;
+end;
+
 function THtmlElement.EnumAttributeNames(Index: Integer): WideString;
 var
   Attrs: TStringDynArray;
@@ -2129,8 +2154,6 @@ begin
 end;
 
 function THtmlElement.RemoveChild(ANode: IHtmlElement): Integer;
-var
-  i:Integer;
 begin
   Result := -1;
   if ANode.Parent = IHtmlElement(Self) then
@@ -2142,13 +2165,11 @@ end;
 
 procedure THtmlElement.Remove;
 begin
-  if (FOwner <> nil) and (FOwner.FChildren <> nil) then
-    FOwner.FChildren.Remove(Self);
+  if FOwner <> nil then
+    FOwner.RemoveChild(Self);
 end;
 
 procedure THtmlElement.RemoveAttr(AAttrName: string);
-var
-  I: Integer;
 begin
   FAttributes.Remove(LowerCase(AAttrName));
   if Assigned(FCloseTag) then
@@ -2158,6 +2179,11 @@ end;
 procedure THtmlElement.SetAttributes(Key: WideString; Value: WideString);
 begin
   FAttributes.AddOrSetValue(LowerCase(Key), Value);
+end;
+
+procedure THtmlElement.SetInnerText(Value: WideString);
+begin
+  FContent := Value;
 end;
 
 procedure THtmlElement.SetTagName(Value: WideString);
