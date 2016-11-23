@@ -19,9 +19,20 @@
   脱离了对旧版本的支持,甩掉包袱开发起来真的很爽!
   
 ---------------------------------------------------------------------------------
-ying32修改于 2016年11月15日
+ying32修改记录
 Email:1444386932@qq.com
-  
+
+
+ 2016年11月23日
+
+ 1、简单支持XPath，简单的吧，利用xpath转css selector，嘿
+    xpath转换的代码改自python版本：https://github.com/santiycr/cssify/blob/master/cssify.py
+    另外对正则System.RegularExpressions.pas中TGroupCollection.GetItem进行了改进，没有找到命名组
+    且非PCRE_ERROR_NOSUBSTRING时返回空的，而不是抛出一个异常。暂时就简单粗爆的直接改吧，官方网站
+    上看到有人提过这个QC，不知道后面有没有解决。
+
+ 2016年11月15日
+
  IHtmlElement和THtmlElement的改变：
   1、Attributes属性增加Set方法
   2、TagName属性增加Set方法
@@ -52,7 +63,7 @@ Email:1444386932@qq.com
   LHtml.Find('a').RemoveAll
 
   // 查找并遍沥
-  // LHtml.Find('a').Each(
+  LHtml.Find('a').Each(
     procedure(AIndex: Integer; AEl: IHtmlElement)
     begin
       Writeln('Index=', AIndex, ',  href=', AEl.Attributes['href']);
@@ -70,7 +81,10 @@ interface
 
 uses
   SysUtils,
-  Generics.Collections;
+  Classes,
+  Generics.Collections,
+
+  RegularExpressions;
 
 {$IF (defined(IOS) and defined(CPUARM)) or defined(ANDROID)}
 {$DEFINE MOBILE_DEV}
@@ -130,6 +144,7 @@ type
 
     function SimpleCSSSelector(const selector: WideString): IHtmlElementList; stdcall;
     function Find(const selector: WideString): IHtmlElementList; stdcall;
+    function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
 
 
     // 枚举属性
@@ -149,7 +164,7 @@ type
     property InnerHtml: WideString read GetInnerHtml;
     property OuterHtml: WideString read GetOuterHtml;
     property InnerText: WideString read GetInnerText write SetInnerText;
-    property Text: WideString read GetInnerText;
+    property Text: WideString read GetInnerText write SetInnerText;
 
     property Attributes[Key: WideString]: WideString read GetAttributes write SetAttributes;
   end;
@@ -301,6 +316,7 @@ type
 
     function SimpleCSSSelector(const selector: WideString): IHtmlElementList; stdcall;
     function Find(const selector: WideString): IHtmlElementList; stdcall;
+    function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
 
 
     // 枚举属性
@@ -2206,6 +2222,14 @@ begin
   Result := SimpleCSSSelector(selector);
 end;
 
+// .....
+function XPathToCSSSelector(const AXPath: string): string; forward;
+
+function THtmlElement.FindX(const AXPath: WideString): IHtmlElementList;
+begin
+  Result := SimpleCSSSelector(XPathToCSSSelector(AXPath));
+end;
+
 { TSourceContext }
 
 function TSourceContext.subStr(Index, Count: Integer): string;
@@ -2317,12 +2341,120 @@ begin
     IncSrc();
 end;
 
-initialization
+/// <summary>
+///   放在这里要主是为了区分原来的代码，
+///   转换代码来自python:https://github.com/santiycr/cssify/blob/master/cssify.py
+/// </summary>
+var
+//  Sub_regexes_Tag: TRegEx;
+//  Sub_regexes_Attribute: TRegEx;
+//  Sub_regexes_Value: TRegEx;
+  Validation_re: TRegEx;
 
-Init();
+function XPathToCSSSelector(const AXPath: string): string;
+var
+  LMatch: TGroupCollection;
+
+  function GetValue(AName: string): string;
+  begin
+    Result := '';
+    if LMatch[AName].Success then
+      Result := LMatch[AName].Value;
+  end;
+
+var
+  LPosition, LXPathLen: Integer;
+  LNode: TMatch;
+  LNav, LTag, LAttr, LNth, LMattr, LMvalue, LNode_css: string;
+  I: Integer;
+begin
+  Result := '';
+  LPosition := 1;
+  LXPathLen := Length(AXPath);
+  while LPosition < LXPathLen do
+  begin
+    LNode := Validation_re.Match(Copy(AXPath, LPosition, LXPathLen - LPosition + 1));
+    if not LNode.Success then
+      Exit;
+    LMatch := LNode.Groups;
+
+    LNav := '';
+    if LPosition <> 1 then
+    begin
+      LNav := ' ';
+      if GetValue('nav') <> '//' then
+        LNav := ' > ';
+    end;
+
+    LTag := '';
+    if GetValue('tag') <> '*' then
+      LTag := GetValue('tag');
+
+    LAttr := '';
+    if GetValue('idvalue') <> '' then
+    begin
+      LAttr := '#' + GetValue('idvalue').Replace(' ', '#');
+    end else
+    if GetValue('matched') <> '' then
+    begin
+      LMattr := GetValue('mattr');
+      LMvalue := GetValue('mvalue');
+
+      if LMattr = '@id' then
+        LAttr := '#' + LMvalue.Replace(' ', '#')
+      else if LMattr = '@class' then
+        LAttr := '.' + LMvalue.Replace(' ', '.')
+      else if (LMattr = 'text()') or (LMattr = '.') then
+        LAttr := ':contains(^' + LMvalue + '$)'
+      else
+      begin
+        if LMvalue.IndexOf(' ') <> -1 then
+          LMvalue := '\"' + LMvalue + '\"';
+        LAttr := Format('[%s=%s]"', [LMattr.Replace('@', ''), LMvalue]);
+      end;
+    end else
+    if GetValue('contained') <> '' then
+    begin
+      LMattr := GetValue('mattr');
+      LMvalue := GetValue('mvalue');
+      if LMattr.StartsWith('@') then
+        LAttr := Format('[%s*=%s]', [LMattr.Replace('@', ''), GetValue('cvalue')])
+      else if GetValue('cattr') = 'text()' then
+        LAttr := ':contains(' + GetValue('cvalue') + ')';
+    end;
+
+    LNth := GetValue('nth');
+    if LNth <> '' then
+      LNth := ':nth-of-type(' + LNth +')';
+
+    LNode_css := LNav + LTag + LAttr + LNth;
+    Result := Result + LNode_css;
+
+    Inc(LPosition, LNode.Length);
+  end;
+end;
+
+procedure InitRegExs;
+begin
+//  Sub_regexes_Tag := TRegEx.Create('([a-zA-Z][a-zA-Z0-9]{0,10}|\*)', [roIgnoreCase, roNotEmpty, roCompiled]);
+//  Sub_regexes_Attribute := TRegEx.Create('[.a-zA-Z_:][-\w:.]*(\(\))?', [roIgnoreCase, roNotEmpty, roCompiled]);
+//  Sub_regexes_Value := TRegEx.Create('\s*[\w/:][-/\w\s,:;.]*', [roIgnoreCase, roNotEmpty, roCompiled]);
+  Validation_re := TRegEx.Create(
+    '(?P<node>(^id\(["'']?(?P<idvalue>\s*[\w/:][-/\w\s,:;.]*)["'']?\)|' +
+    '(?P<nav>//?)(?P<tag>([a-zA-Z][a-zA-Z0-9]{0,10}|\*))(\[((?P<matched>' +
+    '(?P<mattr>@?[.a-zA-Z_:][-\w:.]*(\(\))?)=["''](?P<mvalue>\s*[\w/:]' +
+    '[-/\w\s,:;.]*))["'']|(?P<contained>contains\((?P<cattr>@?[.a-zA-Z_:]' +
+    '[-\w:.]*(\(\))?),\s*["''](?P<cvalue>\s*[\w/:][-/\w\s,:;.]*)' +
+    '["'']\)))\])?(\[(?P<nth>\d)\])?))'
+  , [roIgnoreCase, roMultiLine, roCompiled]);
+end;
+
+initialization
+  InitRegExs;
+  Init;
 
 finalization
 
-UnInit();
+  UnInit;
 
 end.

@@ -4,9 +4,33 @@ delphi html parser
 代码是改自原wr960204的[HtmlParser](http://www.raysoftware.cn/?p=370)，因为自己的需求需要对html进行修改操作，但无奈只支持读取操作，所以在此基础上做了修改并命名为HtmlParserEx.pas与之区别。  
 
 #### 修改记录
-
-ying32修改于 2016年11月15日  
+ying32修改记录：  
 Email:1444386932@qq.com  
+
+ 2016年11月23日  
+
+ 1、简单支持XPath，简单的吧，利用xpath转css selector，嘿  
+    xpath转换的代码改自[python版本](https://github.com/santiycr/cssify/blob/master/cssify.py)
+    另外对正则System.RegularExpressions.pas中TGroupCollection.GetItem进行了改进，没有找到命名组
+    且非PCRE_ERROR_NOSUBSTRING时返回空的，而不是抛出一个异常。暂时就简单粗爆的直接改吧，官方网站
+    上看到有人提过这个QC，不知道后面有没有解决。   
+
+> IHtmlElement  
+
+```delphi  
+
+  LHtml.FindX('/html/head/title').Each(
+    procedure(AIndex: Integer; AEl: IHtmlElement) 
+    begin
+      Writeln('xpath index=', AIndex, ',  a=', AEl.Text);  
+    end
+  );
+
+```  
+   
+
+2016年11月15日  
+
 
 >  
  IHtmlElement和THtmlElement的改变：    
