@@ -2408,16 +2408,16 @@ begin
         LAttr := ':contains(^' + LMvalue + '$)'
       else
       begin
-        if LMvalue.IndexOf(' ') <> -1 then
-          LMvalue := '\"' + LMvalue + '\"';
+        if Pos(' ', LMvalue.IndexOf(' ')) <> 0 then
+          LMvalue := '"' + LMvalue + '"';
         LAttr := Format('[%s=%s]"', [LMattr.Replace('@', ''), LMvalue]);
       end;
     end else
     if GetValue('contained') <> '' then
     begin
-      LMattr := GetValue('mattr');
-      LMvalue := GetValue('mvalue');
-      if LMattr.StartsWith('@') then
+      LMattr := GetValue('cattr');
+      LMvalue := GetValue('cvalue');
+      if Pos('@', LMattr) > 0 then
         LAttr := Format('[%s*=%s]', [LMattr.Replace('@', ''), GetValue('cvalue')])
       else if GetValue('cattr') = 'text()' then
         LAttr := ':contains(' + GetValue('cvalue') + ')';
