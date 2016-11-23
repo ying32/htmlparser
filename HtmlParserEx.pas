@@ -2408,7 +2408,7 @@ begin
         LAttr := ':contains(^' + LMvalue + '$)'
       else
       begin
-        if Pos(' ', LMvalue.IndexOf(' ')) <> 0 then
+        if Pos(' ', LMvalue) <> 0 then
           LMvalue := '"' + LMvalue + '"';
         LAttr := Format('[%s=%s]"', [LMattr.Replace('@', ''), LMvalue]);
       end;
