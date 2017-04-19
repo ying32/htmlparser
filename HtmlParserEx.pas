@@ -22,6 +22,9 @@
 ying32修改记录
 Email:1444386932@qq.com
 
+ 2017年04月19日 
+
+ 1、增加使用XPath功能的编译指令"UseXPath"，默认不使用XPath，个人感觉没什么用  
 
  2016年11月23日
 
@@ -77,14 +80,17 @@ Email:1444386932@qq.com
 
 unit HtmlParserEx;
 
+{'$DEFINE UseXPath}
+
 interface
 
 uses
   SysUtils,
   Classes,
-  Generics.Collections,
-
-  RegularExpressions;
+  Generics.Collections
+{$IFDEF UseXPath}
+  ,RegularExpressions
+{$ENDIF};
 
 {$IF (defined(IOS) and defined(CPUARM)) or defined(ANDROID)}
 {$DEFINE MOBILE_DEV}
@@ -144,8 +150,9 @@ type
 
     function SimpleCSSSelector(const selector: WideString): IHtmlElementList; stdcall;
     function Find(const selector: WideString): IHtmlElementList; stdcall;
+{$IFDEF UseXPath}	
     function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
-
+{$ENDIF}
 
     // 枚举属性
     function EnumAttributeNames(Index: Integer): WideString; safecall;
@@ -316,8 +323,9 @@ type
 
     function SimpleCSSSelector(const selector: WideString): IHtmlElementList; stdcall;
     function Find(const selector: WideString): IHtmlElementList; stdcall;
+{$IFDEF UseXPath}	
     function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
-
+{$ENDIF}
 
     // 枚举属性
     function EnumAttributeNames(Index: Integer): WideString; safecall;
@@ -2222,6 +2230,7 @@ begin
   Result := SimpleCSSSelector(selector);
 end;
 
+{$IFDEF UseXPath}
 // .....
 function XPathToCSSSelector(const AXPath: string): string; forward;
 
@@ -2229,6 +2238,8 @@ function THtmlElement.FindX(const AXPath: WideString): IHtmlElementList;
 begin
   Result := SimpleCSSSelector(XPathToCSSSelector(AXPath));
 end;
+{$ENDIF}
+
 
 { TSourceContext }
 
@@ -2341,6 +2352,8 @@ begin
     IncSrc();
 end;
 
+
+{$IFDEF UseXPath}
 /// <summary>
 ///   放在这里要主是为了区分原来的代码，
 ///   转换代码来自python:https://github.com/santiycr/cssify/blob/master/cssify.py
@@ -2448,9 +2461,12 @@ begin
     '["'']\)))\])?(\[(?P<nth>\d)\])?))'
   , [roIgnoreCase, roMultiLine, roCompiled]);
 end;
+{$ENDIF UseXPath}
 
 initialization
+{$IFDEF UseXPath}
   InitRegExs;
+{$ENDIF}
   Init;
 
 finalization
