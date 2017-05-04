@@ -22,6 +22,10 @@
 ying32修改记录
 Email:1444386932@qq.com
 
+ 2017年05月04日
+
+ 1、去除RegularExpressions单元的引用，不再使用TRegEx改使用RegularExpressionsCore单元中的TPerlRegEx
+
  2017年04月19日 
 
  1、增加使用XPath功能的编译指令"UseXPath"，默认不使用XPath，个人感觉没什么用  
@@ -89,7 +93,7 @@ uses
   Classes,
   Generics.Collections
 {$IFDEF UseXPath}
-  ,RegularExpressions
+  ,RegularExpressionsCore
 {$ENDIF};
 
 {$IF (defined(IOS) and defined(CPUARM)) or defined(ANDROID)}
@@ -2359,38 +2363,27 @@ end;
 ///   转换代码来自python:https://github.com/santiycr/cssify/blob/master/cssify.py
 /// </summary>
 var
-//  Sub_regexes_Tag: TRegEx;
-//  Sub_regexes_Attribute: TRegEx;
-//  Sub_regexes_Value: TRegEx;
-  Validation_re: TRegEx;
+  Validation_re: TPerlRegEx;
 
 function XPathToCSSSelector(const AXPath: string): string;
-var
-  LMatch: TGroupCollection;
 
   function GetValue(AName: string): string;
   begin
-    Result := '';
-    if LMatch[AName].Success then
-      Result := LMatch[AName].Value;
+    Result := Validation_re.Groups[Validation_re.NamedGroup(AName)];
   end;
 
 var
   LPosition, LXPathLen: Integer;
-  LNode: TMatch;
   LNav, LTag, LAttr, LNth, LMattr, LMvalue, LNode_css: string;
-  I: Integer;
 begin
   Result := '';
   LPosition := 1;
   LXPathLen := Length(AXPath);
   while LPosition < LXPathLen do
   begin
-    LNode := Validation_re.Match(Copy(AXPath, LPosition, LXPathLen - LPosition + 1));
-    if not LNode.Success then
+    Validation_re.Subject := Copy(AXPath, LPosition, LXPathLen - LPosition + 1);
+    if not Validation_re.Match then
       Exit;
-    LMatch := LNode.Groups;
-
     LNav := '';
     if LPosition <> 1 then
     begin
@@ -2442,24 +2435,25 @@ begin
 
     LNode_css := LNav + LTag + LAttr + LNth;
     Result := Result + LNode_css;
-
-    Inc(LPosition, LNode.Length);
+    Inc(LPosition, Validation_re.MatchedOffset + Validation_re.MatchedLength - 1);
   end;
 end;
 
+const
+  uRegExPattern =
+      '(?P<node>(^id\(["'']?(?P<idvalue>\s*[\w/:][-/\w\s,:;.]*)["'']?\)|' +
+      '(?P<nav>//?)(?P<tag>([a-zA-Z][a-zA-Z0-9]{0,10}|\*))(\[((?P<matched>' +
+      '(?P<mattr>@?[.a-zA-Z_:][-\w:.]*(\(\))?)=["''](?P<mvalue>\s*[\w/:]' +
+      '[-/\w\s,:;.]*))["'']|(?P<contained>contains\((?P<cattr>@?[.a-zA-Z_:]' +
+      '[-\w:.]*(\(\))?),\s*["''](?P<cvalue>\s*[\w/:][-/\w\s,:;.]*)' +
+      '["'']\)))\])?(\[(?P<nth>\d)\])?))';
+
 procedure InitRegExs;
 begin
-//  Sub_regexes_Tag := TRegEx.Create('([a-zA-Z][a-zA-Z0-9]{0,10}|\*)', [roIgnoreCase, roNotEmpty, roCompiled]);
-//  Sub_regexes_Attribute := TRegEx.Create('[.a-zA-Z_:][-\w:.]*(\(\))?', [roIgnoreCase, roNotEmpty, roCompiled]);
-//  Sub_regexes_Value := TRegEx.Create('\s*[\w/:][-/\w\s,:;.]*', [roIgnoreCase, roNotEmpty, roCompiled]);
-  Validation_re := TRegEx.Create(
-    '(?P<node>(^id\(["'']?(?P<idvalue>\s*[\w/:][-/\w\s,:;.]*)["'']?\)|' +
-    '(?P<nav>//?)(?P<tag>([a-zA-Z][a-zA-Z0-9]{0,10}|\*))(\[((?P<matched>' +
-    '(?P<mattr>@?[.a-zA-Z_:][-\w:.]*(\(\))?)=["''](?P<mvalue>\s*[\w/:]' +
-    '[-/\w\s,:;.]*))["'']|(?P<contained>contains\((?P<cattr>@?[.a-zA-Z_:]' +
-    '[-\w:.]*(\(\))?),\s*["''](?P<cvalue>\s*[\w/:][-/\w\s,:;.]*)' +
-    '["'']\)))\])?(\[(?P<nth>\d)\])?))'
-  , [roIgnoreCase, roMultiLine, roCompiled]);
+  Validation_re := TPerlRegEx.Create;
+  Validation_re.Options := [preCaseLess, preMultiLine];
+  Validation_re.RegEx := uRegExPattern;
+  Validation_re.Compile;
 end;
 {$ENDIF UseXPath}
 
@@ -2470,7 +2464,10 @@ initialization
   Init;
 
 finalization
-
   UnInit;
+{$IFDEF UseXPath}
+  if Validation_re <> nil then
+    Validation_re.Free;
+{$ENDIF}
 
 end.

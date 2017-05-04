@@ -7,6 +7,14 @@ delphi html parser
 ying32修改记录：  
 Email:1444386932@qq.com  
 
+ 2017年05月04日
+
+ 1、去除RegularExpressions单元的引用，不再使用TRegEx改使用RegularExpressionsCore单元中的TPerlRegEx
+
+ 2017年04月19日 
+
+ 1、增加使用XPath功能的编译指令"UseXPath"，默认不使用XPath，个人感觉没什么用  
+ 
  2016年11月23日  
 
  1、简单支持XPath，简单的吧，利用xpath转css selector，嘿  
