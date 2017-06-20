@@ -22,6 +22,10 @@
 ying32修改记录
 Email:1444386932@qq.com
 
+ 2017年06月20日
+
+ 1、为IHtmlElementList增加for in 语法支持
+
  2017年05月04日
 
  1、去除RegularExpressions单元的引用，不再使用TRegEx改使用RegularExpressionsCore单元中的TPerlRegEx
@@ -180,6 +184,18 @@ type
     property Attributes[Key: WideString]: WideString read GetAttributes write SetAttributes;
   end;
 
+
+  THtmlListEnumerator = class
+  private
+    FIndex: Integer;
+    FList: IHtmlElementList;
+  public
+    constructor Create(AList: IHtmlElementList);
+    function GetCurrent: IHtmlElement; inline;
+    function MoveNext: Boolean;
+    property Current: IHtmlElement read GetCurrent;
+  end;
+
   IHtmlElementList = interface
     ['{8E1380C6-4263-4BF6-8D10-091A86D8E7D9}']
     function GetCount: Integer; stdcall;
@@ -188,6 +204,7 @@ type
     procedure Remove(ANode: IHtmlElement); stdcall;
     procedure Each(f: TElementEachEvent); stdcall;
     function GetText: WideString; stdcall;
+    function GetEnumerator: THtmlListEnumerator;
 
     property Text: WideString read GetText;
     property Count: Integer read GetCount;
@@ -394,6 +411,8 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+
+    function GetEnumerator: THtmlListEnumerator;
 
     function IndexOf(Item: IHtmlElement): Integer;
     // IHtmlElementList
@@ -1833,6 +1852,11 @@ begin
   Result := FList.Count;
 end;
 
+function TIHtmlElementList.GetEnumerator: THtmlListEnumerator;
+begin
+  Result := THtmlListEnumerator.Create(Self);
+end;
+
 function TIHtmlElementList.GetItems(Index: Integer): IHtmlElement;
 begin
   Result := FList[Index];
@@ -1859,7 +1883,6 @@ end;
 
 procedure TIHtmlElementList.RemoveAll;
 var
-  LE: IHtmlElement;
   I: Integer;
   LParent: IHtmlElement;
 begin
@@ -1867,9 +1890,7 @@ begin
   begin
     LParent := FList[I].Parent;
     if LParent <> nil then
-    begin
       LParent.RemoveChild(FList[I]);
-    end;
   end;
 end;
 
@@ -2456,6 +2477,27 @@ begin
   Validation_re.Compile;
 end;
 {$ENDIF UseXPath}
+
+{ THtmlListEnumerator }
+
+constructor THtmlListEnumerator.Create(AList: IHtmlElementList);
+begin
+  inherited Create;
+  FIndex := -1;
+  FList := AList;
+end;
+
+function THtmlListEnumerator.GetCurrent: IHtmlElement;
+begin
+  Result := FList[FIndex];
+end;
+
+function THtmlListEnumerator.MoveNext: Boolean;
+begin
+  Result := FIndex < FList.Count - 1;
+  if Result then
+    Inc(FIndex);
+end;
 
 initialization
 {$IFDEF UseXPath}
