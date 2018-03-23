@@ -3,6 +3,34 @@ delphi html parser
 
 代码是改自原wr960204的[HtmlParser](http://www.raysoftware.cn/?p=370)，因为自己的需求需要对html进行修改操作，但无奈只支持读取操作，所以在此基础上做了修改并命名为HtmlParserEx.pas与之区别。  
 
+
+#### 使用
+
+```delphi
+// 从文件加载示例
+procedure Test;
+var
+  LHtml: IHtmlElement;
+  LList: IHtmlElementList;
+  LStrStream: TStringStream;
+begin
+  LStrStream := TStringStream.Create('', TEncoding.UTF8);
+  try
+    LStrStream.LoadFromFile('view-source_https___github.com_ying32_htmlparser.html');
+    LHtml := ParserHTML(LStrStream.DataString);
+    if LHtml <> nil then
+    begin
+      LList := LHtml.SimpleCSSSelector('a');
+      for LHtml in LList do
+        Writeln('url:', lhtml.Attributes['href']);
+    end;
+  finally
+    LStrStream.Free;
+  end;
+end;
+```
+
+
 #### 修改记录
 ying32修改记录：  
 Email:1444386932@qq.com  
