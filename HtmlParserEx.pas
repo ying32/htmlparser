@@ -740,7 +740,7 @@ var
     end;
   end;
 
-  function PosCharInTag(AChar: Char): Boolean;
+  function PosCharInTag(AChar: Char; AIsComment: Boolean = False): Boolean;
   var
     StrChar: Char;
   begin
@@ -750,12 +750,19 @@ var
     begin
       if sc.CurrentChar = #0 then
         Break;
-      if sc.CurrentChar = '"' then
+
+      // ying32添加
+      // AIsComment 为啥要加这个呢，因为要忽略注释中所有的不正常字符，
+      // 在实际中有发现这类问题，因为注释中的问题，造成解析报错。
+      if not AIsComment then
       begin
-        if StrChar = #0 then
-          StrChar := sc.CurrentChar
-        else
-          StrChar := #0;
+        if sc.CurrentChar = '"' then
+        begin
+          if StrChar = #0 then
+            StrChar := sc.CurrentChar
+          else
+            StrChar := #0;
+        end;
       end;
 
       if (sc.CurrentChar = AChar) and (StrChar = #0) then
@@ -941,7 +948,9 @@ begin
               sc.IncSrc; // -
               while True do
               begin
-                if not PosCharInTag('>') then
+                // 只有这个特殊点，例如 <!--[if lt IE 8]> <![endif]-->  如果中间出现一个错误的英文单引号 "
+                // 就会造成解析错误，整个当成一个注释过滤掉就好了
+                if not PosCharInTag('>', True) then
                   DoError('LineNum:' + IntToStr(BeginLineNum) + '无法找到Tag结束点:' +
                     sc.subStr(100))
                 else if (sc.charOfCurrent[-1] = '-') and
