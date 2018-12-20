@@ -90,6 +90,10 @@ unit HtmlParserEx;
 
 {'$DEFINE UseXPath}
 
+{$IF RTLVersion < 24.0}
+  {$MESSAGE ERROR '只支持XE3及之后的版本'}
+{$ENDIF}
+
 interface
 
 uses
@@ -182,6 +186,8 @@ type
     property Text: WideString read GetInnerText write SetInnerText;
 
     property Attributes[Key: WideString]: WideString read GetAttributes write SetAttributes;
+    // ying32 不改动原来的，只简化使用
+    property Attrs[Key: WideString]: WideString read GetAttributes write SetAttributes;
   end;
 
 
@@ -275,9 +281,11 @@ type
     LineNum: Integer;
     ColNum: Integer;
     CurrentChar: Char;
-{$IFDEF DEBUG}
+//{$IFDEF DEBUG}
+    // 这个东东如果不在Relaese模式下使用则会AV错误，暂时没想通原因。。
+    // 实际并没有用到这个
     currentCode: PChar;
-{$ENDIF}
+//{$ENDIF}
     procedure IncSrc(); overload; inline;
     procedure IncSrc(Step: Integer); overload; inline;
     procedure setCode(const ACode: string); inline;
@@ -2334,9 +2342,9 @@ begin
     Inc(ColNum);
   Inc(CodeIndex);
   CurrentChar := Code[CodeIndex];
-{$IFDEF DEBUG}
+//{$IFDEF DEBUG}
   currentCode := PChar(@Code[CodeIndex]);
-{$ENDIF}
+//{$ENDIF}
 end;
 
 procedure TSourceContext.IncSrc(Step: Integer);
@@ -2362,9 +2370,9 @@ begin
   if Length(ACode) > 0 then
   begin
     CurrentChar := Code[CodeIndex];
-{$IFDEF DEBUG}
+//{$IFDEF DEBUG}
     currentCode := PChar(@Code[CodeIndex]);
-{$ENDIF}
+//{$ENDIF}
   end;
 
 end;
