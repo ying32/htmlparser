@@ -2296,7 +2296,7 @@ begin
   else
     stringChar := #0;
   IncSrc;
-  while FCodeIndex < Length(FCode) do
+  while CodeIndex < Length(Code) do
   begin
     if stringChar = #0 then
     begin
