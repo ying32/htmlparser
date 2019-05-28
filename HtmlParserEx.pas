@@ -2244,6 +2244,8 @@ end;
 procedure THtmlElement.SetTagName(Value: WideString);
 begin
   FTagName := UpperCase(Value);
+  if FCloseTag <> nil then
+    FCloseTag.TagName := Self.FTagName;
 end;
 
 function THtmlElement.SimpleCSSSelector(const selector: WideString)
