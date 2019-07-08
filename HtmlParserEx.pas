@@ -109,6 +109,10 @@ uses
 {$ENDIF}
 
 const
+  // By design each IHtmlElement has a TagName property, even it's a 'Text' element.
+  // so cSpecialTagName_Text represents the fake tag name of a Text element
+  cSpecialTagName_Text = '#TEXT';
+
   LowStrIndex = Low(string); // 移动平台=0,个人电脑平台=1
 
 type
@@ -218,9 +222,11 @@ type
   end;
 
 function ParserHTML(const Source: WideString): IHtmlElement; stdcall;
+function DecodeHtmlEntities(S: String): string; forward;
 
 implementation
-
+uses
+  StrUtils;
 
 
 type
@@ -576,7 +582,6 @@ const
     _aoEqual, _aoNotEqual, _aoIncludeWord, _aoBeginWord, _aoBegin, _aoEnd,
     _aoContain);
 
-function ConvertEntities(S: String): string; forward;
 function GetTagProperty(const TagName: string): WORD; forward;
 
 procedure DoError(const Msg: string);
@@ -627,8 +632,10 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := ConvertEntities(AText);
-    FTagName := '#TEXT';
+    // Edwin: 2019-07-08: html entities in the Text of an html tag shouldn't be decoded?
+    //FContent := DecodeHtmlEntities(AText);
+    FContent := AText;
+    FTagName := cSpecialTagName_Text;
     FClosed := True;
   end;
 end;
@@ -639,7 +646,7 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := ConvertEntities(AText);
+    FContent := DecodeHtmlEntities(AText);
     FTagName := '#SCRIPT';
     FClosed := True;
   end;
@@ -651,7 +658,7 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := ConvertEntities(AText);
+    FContent := DecodeHtmlEntities(AText);
     FTagName := '#STYLE';
     FClosed := True;
   end;
@@ -663,7 +670,7 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := ConvertEntities(AText);
+    FContent := DecodeHtmlEntities(AText);
     FTagName := '#COMMENT';
     FClosed := True;
   end;
@@ -706,7 +713,7 @@ begin
     _ParserNodeItem(AText, FTagName, Attrs);
     for I := Low(Attrs) to High(Attrs) do
       FAttributes.AddOrSetValue(LowerCase(Attrs[I].Key),
-        ConvertEntities(Attrs[I].Value));
+        DecodeHtmlEntities(Attrs[I].Value));
   end;
 end;
 
@@ -716,7 +723,7 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := ConvertEntities(AText);
+    FContent := DecodeHtmlEntities(AText);
     FTagName := '#DOCTYPE';
     FClosed := True;
     if FContent = '' then
@@ -1398,7 +1405,7 @@ begin
   Result := Char(W);
 end;
 
-function ConvertEntities(S: String): string;
+function DecodeHtmlEntities(S: String): string;
 var
   tmp: string;
   I, p: Integer;
@@ -1615,7 +1622,7 @@ var
     // SetString(Result.Value, oldP, P - oldP);
     if (stringChar <> #0) and (Length(Result.Value) >= 2) then
       Result.Value := Copy(Result.Value, 2, Length(Result.Value) - 2);
-    Result.Value := ConvertEntities(Result.Value);
+    Result.Value := DecodeHtmlEntities(Result.Value);
     //
     sc.SkipBlank();
     if sc.CurrentChar = ']' then
@@ -1995,7 +2002,7 @@ procedure THtmlElement._GetHtml(IncludeSelf: Boolean; Sb: TStringBuilder);
     LAttrs: string;
     LV: TPair<string,string>;
   begin
-    if FTagName.Equals('#TEXT') or
+    if FTagName.Equals(cSpecialTagName_Text) or
        FTagName.Equals('#SCRIPT') or
        FTagName.Equals('#STYLE') or
        FTagName.Equals('#COMMENT') or
@@ -2013,7 +2020,10 @@ procedure THtmlElement._GetHtml(IncludeSelf: Boolean; Sb: TStringBuilder);
       begin
         LAttrs := '';
         for LV in FAttributes do
-          LAttrs := LAttrs + Format('%s="%s" ', [LV.Key, LV.Value]);
+          if ContainsStr(LV.Value, '"') then
+            LAttrs := LAttrs + Format('%s=''%s'' ', [LV.Key, LV.Value])
+          else
+            LAttrs := LAttrs + Format('%s="%s" ', [LV.Key, LV.Value]);
         if LAttrs.Length > 2 then
           LAttrs := ' ' + LAttrs.Trim;
         Result := Format('<%s%s>%s', [FTagName.ToLower, LAttrs, FContent]);
@@ -2045,7 +2055,7 @@ var
   I: Integer;
   E: THtmlElement;
 begin
-  if IncludeSelf and (FTagName = '#TEXT') then
+  if IncludeSelf and (FTagName = cSpecialTagName_Text) then
   begin
     Sb.Append(FContent);
   end;
