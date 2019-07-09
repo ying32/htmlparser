@@ -632,7 +632,7 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    // Edwin: 2019-07-08: html entities in the Text of an html tag shouldn't be decoded?
+    // Edwin: 2019-07-08: html entities in the text element shouldn't be decoded?
     //FContent := DecodeHtmlEntities(AText);
     FContent := AText;
     FTagName := cSpecialTagName_Text;
@@ -646,7 +646,9 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := DecodeHtmlEntities(AText);
+    // Edwin: 2019-07-09: html entities in scripts shouldn't be decoded?
+    //FContent := DecodeHtmlEntities(AText);
+    FContent := AText;
     FTagName := '#SCRIPT';
     FClosed := True;
   end;
@@ -658,7 +660,9 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := DecodeHtmlEntities(AText);
+    // Edwin: 2019-07-09: html entities in <style> tags shouldn't be decoded?
+    //FContent := DecodeHtmlEntities(AText);
+    FContent := AText;
     FTagName := '#STYLE';
     FClosed := True;
   end;
@@ -670,7 +674,9 @@ begin
   Result := THtmlElement.Create(AOwner, AText, ALine, ACol);
   with Result do
   begin
-    FContent := DecodeHtmlEntities(AText);
+    // Edwin: 2019-07-09: html entities in comments shouldn't be decoded?
+    //FContent := DecodeHtmlEntities(AText);
+    FContent := AText;
     FTagName := '#COMMENT';
     FClosed := True;
   end;
