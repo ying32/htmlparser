@@ -1806,7 +1806,7 @@ begin
     else
       S := 0;
     S := S or tpFormatAsInline;
-    gTagProperty.AddOrSetValue(Key[I], S);
+    gTagProperty.AddOrSetValue(FormatAsInlineTags[I], S);
   end;
   for I := low(PreserveWhitespaceTags) to high(PreserveWhitespaceTags) do
   begin
