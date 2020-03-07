@@ -88,7 +88,6 @@ Email:1444386932@qq.com
 
 unit HtmlParserEx;
 
-{'$DEFINE UseXPath}
 
 {$IF RTLVersion < 24.0}
   {$MESSAGE ERROR '只支持XE3及之后的版本'}
@@ -99,10 +98,8 @@ interface
 uses
   SysUtils,
   Classes,
-  Generics.Collections
-{$IFDEF UseXPath}
-  ,RegularExpressionsCore
-{$ENDIF};
+  Generics.Collections,
+  RegularExpressionsCore;
 
 {$IF (defined(IOS) and defined(CPUARM)) or defined(ANDROID)}
 {$DEFINE MOBILE_DEV}
@@ -166,9 +163,8 @@ type
 
     function SimpleCSSSelector(const selector: WideString): IHtmlElementList; stdcall;
     function Find(const selector: WideString): IHtmlElementList; stdcall;
-{$IFDEF UseXPath}	
+
     function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
-{$ENDIF}
 
     // 枚举属性
     function EnumAttributeNames(Index: Integer): WideString; stdcall;
@@ -315,7 +311,6 @@ type
   THtmlElement = class(TInterfacedObject, IHtmlElement)
   private
     function GetChildrens: IHtmlElementList;
-
   protected
     // ying32
     function GetParent: IHtmlElement; stdcall;
@@ -356,10 +351,8 @@ type
 
     function SimpleCSSSelector(const selector: WideString): IHtmlElementList; stdcall;
     function Find(const selector: WideString): IHtmlElementList; stdcall;
-{$IFDEF UseXPath}	
-    function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
-{$ENDIF}
 
+    function FindX(const AXPath: WideString): IHtmlElementList; stdcall;
     // 枚举属性
     function EnumAttributeNames(Index: Integer): WideString; stdcall;
 
@@ -382,6 +375,8 @@ type
 
     property Childrens: IHtmlElementList read GetChildrens;
   private
+    // xpath to css, by:ying32
+    FValidationRe: TPerlRegEx;
     FClosed: Boolean;
     //
     FOwner: THtmlElement;
@@ -399,6 +394,14 @@ type
     procedure _GetText(IncludeSelf: Boolean; Sb: TStringBuilder);
     procedure _SimpleCSSSelector(const ItemGroup: TCSSSelectorItemGroup; r: TIHtmlElementList);
     procedure _Select(Item: PCSSSelectorItem; Count: Integer; r: TIHtmlElementList; OnlyTopLevel: Boolean = false);
+
+    // by:yin32 添加
+    procedure InitXPathRegExPattern;
+    /// <summary>
+    ///    利用正则提取xpath并转为css选择器 
+    ///   转换代码来自python:https://github.com/santiycr/cssify/blob/master/cssify.py
+    /// </summary>
+    function XPathToCSSSelector(const AXPath: string): string;
   public
     constructor Create(AOwner: THtmlElement; AText: string; ALine, ACol: Integer);
     destructor Destroy; override;
@@ -1930,10 +1933,12 @@ begin
   FOrignal := AText;
   FSourceLine := ALine;
   FSourceCol := ACol;
+  InitXPathRegExPattern;
 end;
 
 destructor THtmlElement.Destroy;
 begin
+  FValidationRe.Free;
   FChildren.Free;
   FAttributes.Free;
   inherited Destroy;
@@ -2224,6 +2229,23 @@ begin
   Result := FAttributes.ContainsKey(LowerCase(AttributeName));
 end;
 
+procedure THtmlElement.InitXPathRegExPattern;
+const
+  uRegExPattern =
+      '(?P<node>(^id\(["'']?(?P<idvalue>\s*[\w/:][-/\w\s,:;.]*)["'']?\)|' +
+      '(?P<nav>//?)(?P<tag>([a-zA-Z][a-zA-Z0-9]{0,10}|\*))(\[((?P<matched>' +
+      '(?P<mattr>@?[.a-zA-Z_:][-\w:.]*(\(\))?)=["''](?P<mvalue>\s*[\w/:]' +
+      '[-/\w\s,:;.]*))["'']|(?P<contained>contains\((?P<cattr>@?[.a-zA-Z_:]' +
+      '[-\w:.]*(\(\))?),\s*["''](?P<cvalue>\s*[\w/:][-/\w\s,:;.]*)' +
+      '["'']\)))\])?(\[(?P<nth>\d)\])?))';
+begin
+  if FValidationRe = nil then
+    FValidationRe := TPerlRegEx.Create;
+  FValidationRe.Options := [preCaseLess, preMultiLine];
+  FValidationRe.RegEx := uRegExPattern;
+  FValidationRe.Compile;
+end;
+
 function THtmlElement.RemoveChild(ANode: IHtmlElement): Integer;
 begin
   Result := -1;
@@ -2274,20 +2296,92 @@ begin
   Result := r as IHtmlElementList;
 end;
 
+function THtmlElement.XPathToCSSSelector(const AXPath: string): string;
+  function GetValue(AName: string): string;
+  begin
+    Result := FValidationRe.Groups[FValidationRe.NamedGroup(AName)];
+  end;
+
+var
+  LPosition, LXPathLen: Integer;
+  LNav, LTag, LAttr, LNth, LMattr, LMvalue, LNode_css: string;
+begin
+  Result := '';
+  LPosition := 1;
+  LXPathLen := Length(AXPath);
+  while LPosition < LXPathLen do
+  begin
+    FValidationRe.Subject := Copy(AXPath, LPosition, LXPathLen - LPosition + 1);
+    if not FValidationRe.Match then
+      Exit;
+    LNav := '';
+    if LPosition <> 1 then
+    begin
+      LNav := ' ';
+      if GetValue('nav') <> '//' then
+        LNav := ' > ';
+    end;
+
+    LTag := '';
+    if GetValue('tag') <> '*' then
+      LTag := GetValue('tag');
+
+    LAttr := '';
+    if GetValue('idvalue') <> '' then
+    begin
+      LAttr := '#' + GetValue('idvalue').Replace(' ', '#');
+    end else
+    if GetValue('matched') <> '' then
+    begin
+      LMattr := GetValue('mattr');
+      LMvalue := GetValue('mvalue');
+
+      if LMattr = '@id' then
+        LAttr := '#' + LMvalue.Replace(' ', '#')
+      else if LMattr = '@class' then
+        LAttr := '.' + LMvalue.Replace(' ', '.')
+      else if (LMattr = 'text()') or (LMattr = '.') then
+        LAttr := ':contains(^' + LMvalue + '$)'
+      else
+      begin
+        if Pos(' ', LMvalue) <> 0 then
+          LMvalue := '"' + LMvalue + '"';
+        LAttr := Format('[%s=%s]"', [LMattr.Replace('@', ''), LMvalue]);
+      end;
+    end else
+    if GetValue('contained') <> '' then
+    begin
+      LMattr := GetValue('cattr');
+      LMvalue := GetValue('cvalue');
+      if Pos('@', LMattr) > 0 then
+        LAttr := Format('[%s*=%s]', [LMattr.Replace('@', ''), GetValue('cvalue')])
+      else if GetValue('cattr') = 'text()' then
+        LAttr := ':contains(' + GetValue('cvalue') + ')';
+    end;
+
+    LNth := GetValue('nth');
+    if LNth <> '' then
+      LNth := ':nth-of-type(' + LNth +')';
+
+    LNode_css := LNav + LTag + LAttr + LNth;
+    Result := Result + LNode_css;
+    Inc(LPosition, FValidationRe.MatchedOffset + FValidationRe.MatchedLength - 1);
+  end;
+end;
+
 function THtmlElement.Find(const selector: WideString): IHtmlElementList;
 begin
   Result := SimpleCSSSelector(selector);
 end;
 
-{$IFDEF UseXPath}
-// .....
-function XPathToCSSSelector(const AXPath: string): string; forward;
-
 function THtmlElement.FindX(const AXPath: WideString): IHtmlElementList;
 begin
   Result := SimpleCSSSelector(XPathToCSSSelector(AXPath));
-end;
+{$IFDEF DEBUG}
+
 {$ENDIF}
+end;
+ 
 
 
 { TSourceContext }
@@ -2402,107 +2496,6 @@ begin
     IncSrc();
 end;
 
-
-{$IFDEF UseXPath}
-/// <summary>
-///   放在这里要主是为了区分原来的代码，
-///   转换代码来自python:https://github.com/santiycr/cssify/blob/master/cssify.py
-/// </summary>
-var
-  Validation_re: TPerlRegEx;
-
-function XPathToCSSSelector(const AXPath: string): string;
-
-  function GetValue(AName: string): string;
-  begin
-    Result := Validation_re.Groups[Validation_re.NamedGroup(AName)];
-  end;
-
-var
-  LPosition, LXPathLen: Integer;
-  LNav, LTag, LAttr, LNth, LMattr, LMvalue, LNode_css: string;
-begin
-  Result := '';
-  LPosition := 1;
-  LXPathLen := Length(AXPath);
-  while LPosition < LXPathLen do
-  begin
-    Validation_re.Subject := Copy(AXPath, LPosition, LXPathLen - LPosition + 1);
-    if not Validation_re.Match then
-      Exit;
-    LNav := '';
-    if LPosition <> 1 then
-    begin
-      LNav := ' ';
-      if GetValue('nav') <> '//' then
-        LNav := ' > ';
-    end;
-
-    LTag := '';
-    if GetValue('tag') <> '*' then
-      LTag := GetValue('tag');
-
-    LAttr := '';
-    if GetValue('idvalue') <> '' then
-    begin
-      LAttr := '#' + GetValue('idvalue').Replace(' ', '#');
-    end else
-    if GetValue('matched') <> '' then
-    begin
-      LMattr := GetValue('mattr');
-      LMvalue := GetValue('mvalue');
-
-      if LMattr = '@id' then
-        LAttr := '#' + LMvalue.Replace(' ', '#')
-      else if LMattr = '@class' then
-        LAttr := '.' + LMvalue.Replace(' ', '.')
-      else if (LMattr = 'text()') or (LMattr = '.') then
-        LAttr := ':contains(^' + LMvalue + '$)'
-      else
-      begin
-        if Pos(' ', LMvalue) <> 0 then
-          LMvalue := '"' + LMvalue + '"';
-        LAttr := Format('[%s=%s]"', [LMattr.Replace('@', ''), LMvalue]);
-      end;
-    end else
-    if GetValue('contained') <> '' then
-    begin
-      LMattr := GetValue('cattr');
-      LMvalue := GetValue('cvalue');
-      if Pos('@', LMattr) > 0 then
-        LAttr := Format('[%s*=%s]', [LMattr.Replace('@', ''), GetValue('cvalue')])
-      else if GetValue('cattr') = 'text()' then
-        LAttr := ':contains(' + GetValue('cvalue') + ')';
-    end;
-
-    LNth := GetValue('nth');
-    if LNth <> '' then
-      LNth := ':nth-of-type(' + LNth +')';
-
-    LNode_css := LNav + LTag + LAttr + LNth;
-    Result := Result + LNode_css;
-    Inc(LPosition, Validation_re.MatchedOffset + Validation_re.MatchedLength - 1);
-  end;
-end;
-
-const
-  uRegExPattern =
-      '(?P<node>(^id\(["'']?(?P<idvalue>\s*[\w/:][-/\w\s,:;.]*)["'']?\)|' +
-      '(?P<nav>//?)(?P<tag>([a-zA-Z][a-zA-Z0-9]{0,10}|\*))(\[((?P<matched>' +
-      '(?P<mattr>@?[.a-zA-Z_:][-\w:.]*(\(\))?)=["''](?P<mvalue>\s*[\w/:]' +
-      '[-/\w\s,:;.]*))["'']|(?P<contained>contains\((?P<cattr>@?[.a-zA-Z_:]' +
-      '[-\w:.]*(\(\))?),\s*["''](?P<cvalue>\s*[\w/:][-/\w\s,:;.]*)' +
-      '["'']\)))\])?(\[(?P<nth>\d)\])?))';
-
-procedure InitRegExs;
-begin
-  Validation_re := TPerlRegEx.Create;
-  Validation_re.Options := [preCaseLess, preMultiLine];
-  Validation_re.RegEx := uRegExPattern;
-  Validation_re.Compile;
-end;
-{$ENDIF UseXPath}
-
 { THtmlListEnumerator }
 
 constructor THtmlListEnumerator.Create(AList: IHtmlElementList);
@@ -2525,16 +2518,10 @@ begin
 end;
 
 initialization
-{$IFDEF UseXPath}
-  InitRegExs;
-{$ENDIF}
   Init;
 
 finalization
   UnInit;
-{$IFDEF UseXPath}
-  if Validation_re <> nil then
-    Validation_re.Free;
-{$ENDIF}
+ 
 
 end.
